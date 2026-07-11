@@ -1,0 +1,142 @@
+import time
+import random
+
+class ReActAgent:
+    def __init__(self):
+        self.tools = {
+            "search_web": self.search_web,
+            "get_location": self.get_location,
+            "get_weather": self.get_weather,
+            "calculate": self.calculate,   # NEW
+            "translate": self.translate,   # NEW
+            "joke": self.joke,             # NEW (challenge tool)
+        }
+
+    # ---------------- ORIGINAL TOOLS ----------------
+    def search_web(self, query):
+        print(f" Searching: '{query}'")
+        time.sleep(0.3)
+        results = {
+            "best restaurants": "Top restaurants: Kolachi, Okra, Cafe Flo",
+            "weather": "32°C, Partly cloudy",
+            "flights": "Flight PK-301: On time",
+        }
+        return results.get(query, f"Results found for: {query}")
+
+    def get_location(self):
+        print(" Detecting location...")
+        return "Islamabad, Pakistan"
+
+    def get_weather(self, location):
+        print(f" Weather for {location}...")
+        return f"Weather: 30°C, Sunny in {location}"
+
+    # ---------------- NEW TOOLS (as given in the task sheet) ----------------
+    def calculate(self, expression):
+        """Calculator tool"""
+        try:
+            result = eval(expression)
+            return f"Result: {result}"
+        except:
+            return "Error in calculation"
+
+    def translate(self, text):
+        """Simple translation tool"""
+        translations = {
+            "hello": "Salam",
+            "goodbye": "Khuda Hafiz",
+            "thank you": "Shukriya",
+        }
+        return translations.get(text.lower(), f"Translation for: {text}")
+
+    # ---------------- CHALLENGE TOOL ----------------
+    def joke(self):
+        """Bonus tool: returns a random joke"""
+        jokes = [
+            "Why do programmers prefer dark mode? Because light attracts bugs!",
+            "Why did the AI agent cross the road? To reach a better local optimum.",
+            "I told my code a joke... it didn't get it, but it did compile.",
+        ]
+        return random.choice(jokes)
+
+    # ---------------- REACT LOOP ----------------
+    def run(self, goal):
+        print("\n" + "=" * 60)
+        print(f" GOAL: {goal}")
+        print("=" * 60)
+
+        thought = f"Need to achieve: {goal}"
+        iteration = 0
+
+        while iteration < 4:  # Max 4 steps
+            iteration += 1
+            print(f"\n Step {iteration}")
+            print("-" * 30)
+
+            # REASON (Thought)
+            print(f" THOUGHT: {thought}")
+
+            # ACT (Choose and execute action)
+            goal_lower = goal.lower()
+            if "restaurant" in goal_lower:
+                action = "search_web best restaurants"
+            elif "weather" in goal_lower:
+                location = self.get_location()
+                action = f"get_weather {location}"
+            elif "calculate" in goal_lower:
+                action = "calculate 25 + 30"          # NEW
+            elif "translate" in goal_lower:
+                action = "translate hello"             # NEW
+            elif "flight" in goal_lower:
+                action = "search_web flights"
+            elif "joke" in goal_lower:
+                action = "joke"                        # CHALLENGE
+            else:
+                action = "COMPLETE"
+
+            if action == "COMPLETE":
+                print(" GOAL ACHIEVED!")
+                return f"Final Answer: {thought}"
+
+            print(f" ACTION: {action}")
+
+            # Execute action
+            if " " in action:
+                tool_name, param = action.split(" ", 1)
+                if tool_name in self.tools:
+                    observation = self.tools[tool_name](param)
+                else:
+                    observation = "Unknown tool"
+            else:
+                if action in self.tools:
+                    observation = self.tools[action]()
+                else:
+                    observation = "Action completed"
+
+            # OBSERVE
+            print(f" OBSERVATION: {observation}")
+
+            # Update thought based on observation
+            thought = f"Based on '{observation}', I have the information. I can now complete the goal."
+
+        return f" Completed: {goal}"
+
+# ---------------- RUN DEMO ----------------
+print(" REACT AGENT DEMO - AI Sochta hai aur Action karta hai!\n")
+goals = [
+    "Find best restaurants in the city",
+    "Check today's weather",
+    "Calculate 25 + 30",          # NEW
+    "Translate hello to Urdu",    # NEW
+    "Check flight status",
+    "Tell me a joke",             # CHALLENGE
+]
+
+for goal in goals:
+    agent = ReActAgent()
+    result = agent.run(goal)
+    print(f"\n Result: {result}\n")
+    print("=" * 60)
+
+print("\n KEY TAKEAWAY: Thought -> Action -> Observation cycle AI ko autonomous banata hai!")
+print("More tools = agent can act on more kinds of goals, same loop.")
