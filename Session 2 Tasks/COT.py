@@ -1,72 +1,63 @@
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+import google.generativeai as genai
 
-# Load API Key
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Load Gemini Model
-model = genai.GenerativeModel("gemini-flash-latest")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
-# Problems
+# ---- The 3 problems given in the assignment ----
 problems = [
     "What is 15% of 200?",
     "If 5 apples cost 50 rupees, what do 8 apples cost?",
-    "A square has side 6 cm. What is its area?"
+    "A square has side 6 cm. What is its area?",
 ]
 
-print("=" * 60)
-print("TASK 1: Practice Different Problems")
-print("=" * 60)
 
-for i, problem in enumerate(problems, start=1):
+def ask_without_cot(question):
+    """Direct answer, no reasoning requested"""
+    response = model.generate_content(question)
+    return response.text.strip()
 
-    print(f"\nProblem {i}: {problem}")
 
-    # Without CoT
-    print("\nWITHOUT CoT:")
-    response1 = model.generate_content(
-        f"Answer the following question directly:\n{problem}"
+def ask_with_cot(question):
+    """Same question + CoT trigger phrase"""
+    cot_prompt = question + "\n\nLet's think step by step and show all calculations."
+    response = model.generate_content(cot_prompt)
+    return response.text.strip()
+
+
+results = []
+
+for i, problem in enumerate(problems, 1):
+    print("=" * 70)
+    print(f"PROBLEM {i}: {problem}")
+    print("=" * 70)
+
+    print("\n[WITHOUT CoT]")
+    answer_no_cot = ask_without_cot(problem)
+    print(answer_no_cot)
+
+    print("\n[WITH CoT]")
+    answer_cot = ask_with_cot(problem)
+    print(answer_cot)
+
+    print("-" * 70 + "\n")
+
+    results.append(
+        {
+            "problem": problem,
+            "without_cot": answer_no_cot,
+            "with_cot": answer_cot,
+        }
     )
-    print(response1.text)
 
-    # With CoT
-    print("\nWITH CoT:")
-    response2 = model.generate_content(
-        f"Solve the following problem step by step:\n{problem}"
-    )
-    print(response2.text)
-
-    print("-" * 60)
-
-print("\n" + "=" * 60)
-print("OBSERVATIONS")
-print("=" * 60)
-
-print("""
-1. Problem 1 (15% of 200)
-   - Without CoT: 30
-   - With CoT: Shows percentage calculation and gives 30.
-   - Better Answer: With CoT (clear explanation).
-
-2. Problem 2 (5 apples cost 50 rupees)
-   - Without CoT: 80 rupees
-   - With CoT: Calculates price per apple (10 rupees) and then 8 × 10 = 80.
-   - Better Answer: With CoT.
-
-3. Problem 3 (Square side = 6 cm)
-   - Without CoT: 36 cm²
-   - With CoT: Uses Area = side × side = 6 × 6 = 36 cm².
-   - Better Answer: With CoT.
-
-Questions:
-1. For each problem, which answer was better?
-   -> The With CoT answers were better because they explained the calculation.
-
-2. Did CoT help in every problem?
-   -> Yes. It made the reasoning easier to understand and verify.
-
-3. Which type of problem was CoT most useful for?
-   -> Problem 2 (the word problem involving proportional reasoning).
-""")
+# Simple summary table at the end
+print("=" * 70)
+print("SUMMARY")
+print("=" * 70)
+for r in results:
+    print(f"\nProblem: {r['problem']}")
+    print(f"  Without CoT -> {r['without_cot'][:80]}...")
+    print(f"  With CoT    -> {r['with_cot'][:80]}...")
