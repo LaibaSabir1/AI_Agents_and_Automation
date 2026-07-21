@@ -1,0 +1,145 @@
+import sys  
+import google.generativeai as genai
+import subprocess
+import tempfile
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv('GEMINI_API_KEY')
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-flash-latest')
+
+
+class CoderAgent:
+    def __init__(self):
+        self.code = ""
+        self.attempts = 0
+
+    def write_code(self, task, feedback=None):
+        self.attempts += 1
+
+        if feedback:
+            prompt = f"""
+Task: {task}
+
+Previous attempt failed. Feedback:
+{feedback}
+
+Write corrected Python code that passes evaluation.
+Only output code, no explanations.
+"""
+        else:
+            prompt = f"""
+Task: {task}
+
+Write Python code that:
+1. Takes input: "Enter a number: "
+2. Converts input to integer
+3. Calculates the factorial of that number
+4. Prints: "The factorial of [number] is [factorial]"
+
+Only output code, no explanations.
+"""
+
+        response = model.generate_content(prompt)
+        self.code = response.text.strip()
+
+        if "```python" in self.code:
+            self.code = self.code.split("```python")[1].split("```")[0].strip()
+        elif "```" in self.code:
+            self.code = self.code.split("```")[1].split("```")[0].strip()
+
+        return self.code
+
+class EvaluatorAgent:
+    def __init__(self):
+        self.errors = []
+
+    def evaluate(self, code):
+        self.errors = []
+
+        # a. Syntax errors
+        try:
+            compile(code, '<string>', 'exec')
+        except SyntaxError as e:
+            self.errors.append(f"Syntax Error: {e}")
+
+        temp_file = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write(code)
+                temp_file = f.name
+
+            result = subprocess.run(
+                 [sys.executable, temp_file],
+                 input='5\n',
+                 capture_output=True,
+                 text=True,
+                 timeout=5
+                 )
+            if result.returncode != 0:
+                self.errors.append(f"Runtime Error: {result.stderr.strip()}")
+            else:
+                # c. Logic errors
+                output = result.stdout.strip()
+                expected = "The factorial of 5 is 120"
+                if expected not in output:
+                    self.errors.append(f"Logic Error: Expected '{expected}' but got '{output}'")
+
+        except subprocess.TimeoutExpired:
+            self.errors.append("Error: Code timed out")
+        except Exception as e:
+            self.errors.append(f"Error: {str(e)}")
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
+
+        return self.errors
+
+
+def run_self_correction():
+    task = """Write a program that:
+1. Asks user: "Enter a number: "
+2. Converts input to integer
+3. Calculates the factorial of that number
+4. Prints: "The factorial of [number] is [factorial]"
+"""
+
+    print("Self-Correction Loop Started")
+    print(f"Task: {task}")
+
+    coder = CoderAgent()
+    evaluator = EvaluatorAgent()
+    feedback = None
+    max_attempts = 5
+
+    for attempt in range(1, max_attempts + 1):
+        print(f"\nAttempt #{attempt}")
+
+        code = coder.write_code(task, feedback)
+        print("Code generated")
+
+        errors = evaluator.evaluate(code)
+
+        if errors:
+            print(f"Found {len(errors)} issues:")
+            for error in errors:
+                print(f"  - {error}")
+
+            feedback = "\n".join(errors)
+
+            if attempt < max_attempts:
+                print("Fixing code...")
+            else:
+                print("Max attempts reached")
+                print("\nFinal Code:")
+                print(code)
+        else:
+            print("Code passed all checks!")
+            print("Working code:")
+            print(code)
+            break
+
+
+run_self_correction()
